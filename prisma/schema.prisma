@@ -1,0 +1,61 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Medication search cache
+model MedicationCache {
+  id             String   @id @default(cuid())
+  medicationName String
+  normalizedName String   // Lowercase for case-insensitive search
+  supplier       String   // "laborex" or "ubipharm"
+  available      Boolean
+  price          Float?
+  currency       String?
+  deliveryTime   String?
+  productUrl     String?
+  rawData        String?  // JSON string of additional data
+  searchedAt     DateTime @default(now())
+  expiresAt      DateTime // Cache expiration time
+
+  @@index([normalizedName, supplier])
+  @@index([expiresAt])
+}
+
+// Supplier credentials (encrypted in production)
+model SupplierCredential {
+  id        String   @id @default(cuid())
+  supplier  String   @unique // "laborex" or "ubipharm"
+  username  String
+  password  String   // In production, this should be encrypted
+  loginUrl  String
+  isActive  Boolean  @default(true)
+  lastUsed  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Search history
+model SearchHistory {
+  id         String   @id @default(cuid())
+  query      String
+  results    String   // JSON string of results
+  searchedAt DateTime @default(now())
+
+  @@index([searchedAt])
+}
