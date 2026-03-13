@@ -1,6 +1,6 @@
 # Stage 1: Install dependencies
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install bun for faster package manager
@@ -16,7 +16,7 @@ RUN bun install --frozen-lockfile
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-RUN npm install -g bun
+RUN apk update && npm install -g bun
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -33,7 +33,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nodejs
+RUN apk update && addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy standalone build output
