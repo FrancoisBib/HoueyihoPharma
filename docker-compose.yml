@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Production deployment (uses remote database)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Local development with local PostgreSQL
+  # Use this for development: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+  # Then set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/houeyiho
+  db:
+    image: postgres:15-alpine
+    container_name: houeyiho-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=houeyiho
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local

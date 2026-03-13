@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+bun.lockb
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Environment files (use docker env vars instead)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+.playwright
+
+# Misc
+*.md
+!README.md
+dev.log
+server.log
+*.sqlite
+*.db
