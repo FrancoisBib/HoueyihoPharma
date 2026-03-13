@@ -1,5 +1,8 @@
 # Stage 1: Install dependencies
 FROM node:20-alpine AS deps
+
+# Use a stable Alpine mirror to avoid DNS issues
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirror.sfo12.us.leaseweb.net/g' /etc/apk/repositories
 RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -14,6 +17,9 @@ RUN bun install --frozen-lockfile
 
 # Stage 2: Build the application
 FROM node:20-alpine AS builder
+
+# Use a stable Alpine mirror to avoid DNS issues
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirror.sfo12.us.leaseweb.net/g' /etc/apk/repositories
 WORKDIR /app
 
 RUN apk update && npm install -g bun
@@ -29,6 +35,9 @@ RUN bun run build
 
 # Stage 3: Production runner
 FROM node:20-alpine AS runner
+
+# Use a stable Alpine mirror to avoid DNS issues
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirror.sfo12.us.leaseweb.net/g' /etc/apk/repositories
 WORKDIR /app
 
 ENV NODE_ENV=production
