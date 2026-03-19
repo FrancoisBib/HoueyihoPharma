@@ -418,8 +418,11 @@ async function searchUbipharm(page: Page, config: SupplierConfig, medicationName
 async function handleSearch(medicationName: string): Promise<MedicationResult[]> {
   const configs = getSupplierConfigs().filter(c => c.username && c.password);
   
-  // Run searches in parallel for faster results
-  const searchPromises = configs.map(async (config) => {
+  // Sequential search: try each supplier one at a time
+  // Stop and return results as soon as one supplier returns products
+  const allResults: MedicationResult[] = [];
+  
+  for (const config of configs) {
     try {
       const context = await browserManager.getContext(config.name);
       const page = await context.newPage();
@@ -427,7 +430,8 @@ async function handleSearch(medicationName: string): Promise<MedicationResult[]>
       try {
         const loggedIn = await login(page, config);
         if (!loggedIn) {
-          return [{ success: false, medicationName, supplier: config.name, available: false, price: null, currency: null, expiryDate: null, productUrl: null, sku: null, error: 'Login failed', timestamp: new Date().toISOString() }];
+          allResults.push({ success: false, medicationName, supplier: config.name, available: false, price: null, currency: null, expiryDate: null, productUrl: null, sku: null, error: 'Login failed', timestamp: new Date().toISOString() });
+          continue;
         }
 
         const results = config.name === 'laborex'
@@ -437,24 +441,32 @@ async function handleSearch(medicationName: string): Promise<MedicationResult[]>
         // Log summary
         const availableCount = results.filter(r => r.available).length;
         console.log(`[Search] ${config.name} → ${results.length} products, ${availableCount} available`);
-        return results;
+        
+        // Add results to our collection
+        allResults.push(...results);
+        
+        // If we found products (even unavailable ones), stop here and return
+        // This reduces search time by not waiting for the next supplier
+        if (results.length > 0 && !results[0].error?.includes('No products found')) {
+          console.log(`[Search] ✅ Found ${results.length} results from ${config.name}, stopping search`);
+          break;
+        }
+        
+        console.log(`[Search] No results from ${config.name}, trying next supplier...`);
       } finally {
         await page.close();
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       console.error(`[Search] Error on ${config.name}:`, msg);
-      return [{ success: false, medicationName, supplier: config.name, available: false, price: null, currency: null, expiryDate: null, productUrl: null, sku: null, error: msg, timestamp: new Date().toISOString() }];
+      allResults.push({ success: false, medicationName, supplier: config.name, available: false, price: null, currency: null, expiryDate: null, productUrl: null, sku: null, error: msg, timestamp: new Date().toISOString() });
     }
-  });
-
-  // Wait for all searches to complete in parallel
-  const allResults = await Promise.all(searchPromises);
+  }
   
-  // Flatten and sort: available products first
-  const results = allResults.flat().sort((a, b) => (b.available ? 1 : 0) - (a.available ? 1 : 0));
+  // Sort: available products first
+  const sortedResults = allResults.sort((a, b) => (b.available ? 1 : 0) - (a.available ? 1 : 0));
 
-  return results;
+  return sortedResults;
 }
 
 // ─── Serveur HTTP ─────────────────────────────────────────────────────────────
