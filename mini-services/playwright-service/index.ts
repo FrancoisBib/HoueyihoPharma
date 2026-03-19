@@ -40,6 +40,25 @@ interface SupplierConfig {
 // ─── Config fournisseurs ──────────────────────────────────────────────────────
 const getSupplierConfigs = (): SupplierConfig[] => [
   {
+    name: 'ubipharm',
+    baseUrl: 'https://client-benin.ubipharm.com',
+    loginUrl: 'https://client-benin.ubipharm.com/Identification',
+    searchUrl: 'https://client-benin.ubipharm.com/RechercheProduits',
+    username: process.env.UBIPHARM_USERNAME || '',
+    password: process.env.UBIPHARM_PASSWORD || '',
+    selectors: {
+      usernameInput: 'input[name="Login"]',
+      passwordInput: 'input[name="Password"]',
+      loginButton: 'button[type="submit"]',
+      // ✅ Sélecteurs Ubipharm (même structure que Laborex)
+      productCard: 'div.product-row, tr.odd, tr.even',
+      productName: '.product-row-name, .popup-produit',
+      productPrice: '.product-row-price strong, .cell-pspven',
+      addToCartButton: 'button[addtocard-item-button], .btn-add-cart',
+      ajaxReadyIndicator: 'div.product-row, tbody tr.odd, tbody tr.even',
+    }
+  },
+  {
     name: 'laborex',
     baseUrl: 'https://www.laborex-benin.com',
     loginUrl: 'https://www.laborex-benin.com/fr/login',
@@ -57,25 +76,6 @@ const getSupplierConfigs = (): SupplierConfig[] => [
       // Disponibilité = bouton panier sans attribut "disabled"
       addToCartButton: 'button[addtocard-item-button]',
       ajaxReadyIndicator: 'div.product-row',
-    }
-  },
-  {
-    name: 'ubipharm',
-    baseUrl: 'https://client-benin.ubipharm.com',
-    loginUrl: 'https://client-benin.ubipharm.com/Identification',
-    searchUrl: 'https://client-benin.ubipharm.com/RechercheProduits',
-    username: process.env.UBIPHARM_USERNAME || '',
-    password: process.env.UBIPHARM_PASSWORD || '',
-    selectors: {
-      usernameInput: 'input[name="Login"]',
-      passwordInput: 'input[name="Password"]',
-      loginButton: 'button[type="submit"]',
-      // ✅ Sélecteurs Ubipharm (même structure que Laborex)
-      productCard: 'div.product-row, tr.odd, tr.even',
-      productName: '.product-row-name, .popup-produit',
-      productPrice: '.product-row-price strong, .cell-pspven',
-      addToCartButton: 'button[addtocard-item-button], .btn-add-cart',
-      ajaxReadyIndicator: 'div.product-row, tbody tr.odd, tbody tr.even',
     }
   }
 ];
