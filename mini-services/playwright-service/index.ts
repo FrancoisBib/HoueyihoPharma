@@ -50,10 +50,11 @@ const getSupplierConfigs = (): SupplierConfig[] => [
       usernameInput: 'input[name="Login"]',
       passwordInput: 'input[name="Password"]',
       loginButton: 'button[type="submit"]',
-      // ✅ Sélecteurs Ubipharm (même structure que Laborex)
+      // ✅ Sélecteurs Ubipharm - PRIORITÉ au Prix public (.td-detail .cell-psppub)
       productCard: 'div.product-row, tr.odd, tr.even',
       productName: '.product-row-name, .popup-produit',
-      productPrice: '.product-row-price strong, .cell-pspven',
+      // Prix public en premier (label + valeur), puis fallback TTC
+      productPrice: '.td-detail .cell-psppub, .product-row-price strong, .cell-pspven',
       addToCartButton: 'button[addtocard-item-button], .btn-add-cart',
       ajaxReadyIndicator: 'div.product-row, tbody tr.odd, tbody tr.even',
     }
@@ -69,10 +70,11 @@ const getSupplierConfigs = (): SupplierConfig[] => [
       usernameInput: 'input[name="ShopLoginForm_Login"]',
       passwordInput: 'input[name="ShopLoginForm_Password"]',
       loginButton: 'button[name="login"]',
-      // ✅ Sélecteurs issus du vrai HTML Laborex
+      // ✅ Sélecteurs Laborex - PRIORITÉ au Prix Public
       productCard: 'div.product-row',
       productName: '.product-row-name',
-      productPrice: '.product-row-price strong',
+      // Prix Public en premier via .fs-14px (label) + .text-nowrap (valeur)
+      productPrice: '.fs-14px .text-nowrap, .product-row-price strong',
       // Disponibilité = bouton panier sans attribut "disabled"
       addToCartButton: 'button[addtocard-item-button]',
       ajaxReadyIndicator: 'div.product-row',
@@ -224,15 +226,50 @@ async function extractProduct(
       ? (await nameEl.textContent() || fallbackName).trim()
       : fallbackName;
 
-    // Prix
+    // Prix - Priorité au Prix public via .td-detail > .cell-psppub (Ubipharm) ou .fs-14px > .text-nowrap (Laborex)
     let price: number | null = null;
     let currency: string | null = null;
-    const priceEl = await card.$(config.selectors.productPrice).catch(() => null);
-    if (priceEl) {
-      const raw = (await priceEl.textContent() || '').trim();
-      const match = raw.match(/[\d\s]+/);
-      if (match) price = parseInt(match[0].replace(/\s/g, ''), 10) || null;
-      currency = (raw.includes('CFA') || raw.includes('XOF')) ? 'FCFA' : raw.includes('€') ? 'EUR' : null;
+    
+    // Essayer d'abord le Prix public (dans .td-detail pour Ubipharm)
+    const pricePublicEl = await card.$('.td-detail .cell-psppub').catch(() => null);
+    if (pricePublicEl) {
+      const raw = (await pricePublicEl.textContent() || '').trim();
+      console.log(`[Price] Prix public trouvé (Ubipharm): "${raw}"`);
+      const match = raw.match(/[\d\s.,]+/);
+      if (match) {
+        const cleaned = match[0].replace(/\s/g, '').replace(',', '.');
+        price = parseFloat(cleaned) || null;
+        if (price && Number.isInteger(price)) price = Math.round(price);
+      }
+      currency = (raw.includes('CFA') || raw.includes('XOF')) ? 'FCFA' : null;
+    } else {
+      // Pour Laborex: essayer .fs-14px .text-nowrap
+      const pricePublicLaborex = await card.$('.fs-14px .text-nowrap').catch(() => null);
+      if (pricePublicLaborex) {
+        const raw = (await pricePublicLaborex.textContent() || '').trim();
+        console.log(`[Price] Prix public trouvé (Laborex): "${raw}"`);
+        const match = raw.match(/[\d\s.,]+/);
+        if (match) {
+          const cleaned = match[0].replace(/\s/g, '').replace(',', '.');
+          price = parseFloat(cleaned) || null;
+          if (price && Number.isInteger(price)) price = Math.round(price);
+        }
+        currency = (raw.includes('CFA') || raw.includes('XOF')) ? 'FCFA' : null;
+      } else {
+        // Fallback: Prix TTC ou autre prix
+        const priceEl = await card.$(config.selectors.productPrice).catch(() => null);
+        if (priceEl) {
+          const raw = (await priceEl.textContent() || '').trim();
+          console.log(`[Price] Prix TTC/other: "${raw}"`);
+          const match = raw.match(/[\d\s.,]+/);
+          if (match) {
+            const cleaned = match[0].replace(/\s/g, '').replace(',', '.');
+            price = parseFloat(cleaned) || null;
+            if (price && Number.isInteger(price)) price = Math.round(price);
+          }
+          currency = (raw.includes('CFA') || raw.includes('XOF')) ? 'FCFA' : raw.includes('€') ? 'EUR' : null;
+        }
+      }
     }
 
     // Disponibilité

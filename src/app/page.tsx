@@ -17,6 +17,7 @@ import {
   AlertCircle, 
   Pill, 
   ShoppingCart,
+  ShoppingBag,
   Plus,
   Minus,
   Trash2,
@@ -40,6 +41,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore, CartItem } from '@/store/cart-store';
+import { ChatWidget } from '@/components/chat-widget';
 import { useHistoryStore, SearchHistoryItem } from '@/store/history-store';
 
 // Types
@@ -158,6 +160,171 @@ function CredentialsForm({ onConfigured }: { onConfigured: () => void }) {
           Save Credentials
         </Button>
       </form>
+    </div>
+  );
+}
+
+// SYCAPAY credentials form
+function SycapayCredentialsForm({ onConfigured }: { onConfigured: () => void }) {
+  const [merchantId, setMerchantId] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [environment, setEnvironment] = useState<'TEST' | 'PRODUCTION'>('TEST');
+  const [country, setCountry] = useState('BJ');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [checkLoading, setCheckLoading] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(false);
+
+  // Check if SYCAPAY is already configured on mount
+  useEffect(() => {
+    const checkConfig = async () => {
+      try {
+        const response = await fetch('/api/sycapay/configure-credentials');
+        const data = await response.json();
+        setIsConfigured(data.configured || false);
+        if (data.environment) setEnvironment(data.environment);
+        if (data.country) setCountry(data.country);
+      } catch (error) {
+        console.error('Failed to check SYCAPAY config:', error);
+      } finally {
+        setCheckLoading(false);
+      }
+    };
+    checkConfig();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!merchantId || !apiKey) {
+      setMessage({ type: 'error', text: 'Merchant ID and API Key are required' });
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/sycapay/configure-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchantId, apiKey, environment, country }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'SYCAPAY credentials saved successfully' });
+        setIsConfigured(true);
+        onConfigured();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to configure SYCAPAY' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to connect to server' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (checkLoading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <Loader2 className="h-4 w-4 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <CreditCard className="h-4 w-4 text-green-600" />
+        SYCAPAY Payment
+        {isConfigured && <Badge className="ml-auto text-[10px] h-5 bg-green-100 text-green-700">Configured</Badge>}
+      </div>
+      
+      {!isConfigured && (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={environment === 'TEST' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setEnvironment('TEST')}
+              className="flex-1 text-xs"
+            >
+              Test
+            </Button>
+            <Button
+              type="button"
+              variant={environment === 'PRODUCTION' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setEnvironment('PRODUCTION')}
+              className="flex-1 text-xs"
+            >
+              Production
+            </Button>
+          </div>
+
+          <div className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
+            <span className="text-muted-foreground">Bénin</span>
+          </div>
+          <input type="hidden" value={country} />
+          <p className="text-xs text-muted-foreground">
+            Les paiements sont uniquement disponibles au Bénin
+          </p>
+
+          <Input
+            type="text"
+            placeholder="Merchant ID"
+            value={merchantId}
+            onChange={(e) => setMerchantId(e.target.value)}
+            className="h-9"
+          />
+          
+          <Input
+            type="password"
+            placeholder="API Key"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="h-9"
+          />
+
+          {message && (
+            <p className={`text-xs ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+              {message.text}
+            </p>
+          )}
+
+          <Button type="submit" disabled={loading} size="sm" className="w-full">
+            {loading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+            Save SYCAPAY Credentials
+          </Button>
+        </form>
+      )}
+
+      {isConfigured && (
+        <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded">
+          <p>Environment: <span className="font-medium">{environment}</span></p>
+          <p>Country: <span className="font-medium">{country}</span></p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 h-6 text-xs text-red-600 hover:text-red-700"
+            onClick={async () => {
+              try {
+                await fetch('/api/sycapay/configure-credentials', { method: 'DELETE' });
+                setIsConfigured(false);
+                setMerchantId('');
+                setApiKey('');
+              } catch (error) {
+                console.error('Failed to remove SYCAPAY config:', error);
+              }
+            }}
+          >
+            Remove Configuration
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -379,11 +546,21 @@ function PaymentDrawer({
   const [selectedPharmacy, setSelectedPharmacy] = useState('new-houeyiho');
   const [pharmacyDialogOpen, setPharmacyDialogOpen] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
-  const [step, setStep] = useState<'form' | 'processing' | 'success'>('form');
+  const [step, setStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [transactionId, setTransactionId] = useState('');
+  const [paymentInstructions, setPaymentInstructions] = useState<string[]>([]);
 
   const price = getTotalPrice();
 
   const selectedPharmacyData = pharmacies.find(p => p.id === selectedPharmacy);
+
+  // Map local payment methods to SYCAPAY operator codes
+  const operatorMap: Record<PaymentMethod, string> = {
+    'mtn': 'MtnBJ',
+    'celtis': 'CeltisBJ',
+    'moov': 'MoovBJ',
+  };
 
   const paymentMethods: { id: PaymentMethod; name: string; icon: React.ReactNode; color: string }[] = [
     { id: 'mtn', name: 'MTN Mobile Money', icon: <span className="font-bold text-yellow-600">M</span>, color: 'bg-yellow-100 border-yellow-300' },
@@ -399,28 +576,58 @@ function PaymentDrawer({
     }
 
     setStep('processing');
+    setErrorMessage('');
 
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    try {
+      // Call SYCAPAY API for payment processing
+      const response = await fetch('/api/sycapay/payment/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: price.amount,
+          currency: price.currency,
+          telephone: phone,
+          name: lastName,
+          pname: firstName,
+          operator: operatorMap[paymentMethod],
+        }),
+      });
 
-    setStep('success');
+      const data = await response.json();
 
-    // Auto close after success
-    setTimeout(() => {
-      clearCart();
-      onPaymentSuccess();
-      onOpenChange(false);
-      setStep('form');
-      setEmail('');
-      setFirstName('');
-      setLastName('');
-      setPhone('');
-      setDeliveryAddress('');
-    }, 2000);
+      if (response.ok && data.success) {
+        setTransactionId(data.transactionId || data.orderId || '');
+        setPaymentInstructions(data.instructions || []);
+        setStep('success');
+
+        // Auto close after success
+        setTimeout(() => {
+          clearCart();
+          onPaymentSuccess();
+          onOpenChange(false);
+          resetForm();
+        }, 5000);
+      } else {
+        setErrorMessage(data.error || data.message || 'Payment failed. Please try again.');
+        setStep('error');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      setErrorMessage('Connection error. Please check your internet and try again.');
+      setStep('error');
+    }
   };
 
   const resetForm = () => {
     setStep('form');
+    setEmail('');
+    setFirstName('');
+    setLastName('');
+    setPhone('');
+    setDeliveryAddress('');
+    setErrorMessage('');
+    setTransactionId('');
+    setPaymentInstructions([]);
   };
 
   return (
@@ -742,10 +949,29 @@ function PaymentDrawer({
             >
               <Check className="h-10 w-10 text-green-600" />
             </motion.div>
-            <h3 className="mt-6 text-lg font-semibold text-green-600">Payment Successful!</h3>
+            <h3 className="mt-6 text-lg font-semibold text-green-600">Payment Initiated!</h3>
             <p className="text-sm text-muted-foreground text-center mt-2">
-              Your order has been confirmed. You will receive a confirmation SMS shortly.
+              Transaction sent. Check your phone to confirm payment.
             </p>
+            
+            {/* Transaction Info from SYCAPAY */}
+            {transactionId && (
+              <div className="mt-3 p-2 rounded bg-muted/50 text-xs">
+                <p className="font-medium">Transaction ID: {transactionId}</p>
+              </div>
+            )}
+            
+            {/* Payment Instructions */}
+            {paymentInstructions.length > 0 && (
+              <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 w-full max-w-xs">
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">Instructions:</p>
+                <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+                  {paymentInstructions.map((instruction, i) => (
+                    <li key={i}>• {instruction}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             
             {/* Delivery Info */}
             <div className="mt-4 p-3 rounded-lg bg-muted/50 w-full max-w-xs">
@@ -778,8 +1004,31 @@ function PaymentDrawer({
             </div>
             
             <p className="text-xs text-muted-foreground mt-4">
-              Total paid: <span className="font-semibold">{price.amount.toLocaleString('fr-FR')} {price.currency}</span>
+              Amount: <span className="font-semibold">{price.amount.toLocaleString('fr-FR')} {price.currency}</span>
             </p>
+          </div>
+        )}
+
+        {step === 'error' && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center"
+            >
+              <XCircle className="h-10 w-10 text-red-600" />
+            </motion.div>
+            <h3 className="mt-6 text-lg font-semibold text-red-600">Payment Failed</h3>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              {errorMessage || 'An error occurred. Please try again.'}
+            </p>
+            
+            <Button 
+              className="mt-6"
+              onClick={() => setStep('form')}
+            >
+              Try Again
+            </Button>
           </div>
         )}
       </DrawerContent>
@@ -795,7 +1044,36 @@ function ProfileDrawer({
   credentialsConfigured: boolean;
   onConfigured: () => void;
 }) {
-  const { items: historyItems, clearHistory } = useHistoryStore();
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  useEffect(() => {
+    // Fetch orders when drawer opens
+    setLoadingOrders(true);
+    fetch('/api/orders')
+      .then(res => res.json())
+      .then(data => {
+        setOrders(data.orders || []);
+        setLoadingOrders(false);
+      })
+      .catch(() => setLoadingOrders(false));
+  }, []);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'SUCCESS':
+      case 'PAID':
+      case 'COMPLETED':
+        return 'bg-green-500';
+      case 'PENDING':
+        return 'bg-yellow-500';
+      case 'FAILED':
+      case 'CANCELLED':
+        return 'bg-red-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
 
   return (
     <Drawer direction="right">
@@ -810,90 +1088,70 @@ function ProfileDrawer({
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Profile
+            <ShoppingBag className="h-5 w-5" />
+            Commandes
           </DrawerTitle>
           <DrawerDescription>
-            Manage your settings and view search history
+            Historique de vos commandes
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto">
           <div className="divide-y">
-            {/* Credentials Configuration */}
-            <div className="p-4 hover:bg-muted/30">
-              <CredentialsForm onConfigured={onConfigured} />
-            </div>
-
-            {/* Search History Section */}
+            {/* Orders History Section */}
             <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <History className="h-4 w-4" />
-                  Search History
-                </div>
-                {historyItems.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearHistory}
-                    className="text-xs text-muted-foreground"
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-              {historyItems.length === 0 ? (
+              {loadingOrders ? (
                 <div className="text-center py-4 text-muted-foreground">
-                  <History className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs">No search history yet</p>
+                  <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin" />
+                  <p className="text-xs">Chargement...</p>
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <ShoppingBag className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Aucune commande</p>
+                  <p className="text-xs mt-1">Vos commandes apparaîtront ici</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {historyItems.slice(0, 10).map((item) => (
+                <div className="space-y-3">
+                  {orders.map((order) => (
                     <div
-                      key={item.id}
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
+                      key={order.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-card"
                     >
-                      <div className={`w-2 h-2 rounded-full ${item.foundAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <div className={`w-3 h-3 rounded-full ${getStatusColor(order.paymentStatus || order.status)}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium capitalize truncate">{item.query}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(item.timestamp).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium truncate">{order.orderNumber}</p>
+                          <p className="text-sm font-bold">{order.totalAmount} {order.currency}</p>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(order.createdAt).toLocaleDateString('fr-FR', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                          <Badge variant="secondary" className="text-xs">
+                            {order.paymentStatus === 'PAID' ? 'Payé' : 
+                             order.status === 'COMPLETED' ? 'Complété' :
+                             order.status === 'CANCELLED' ? 'Annulé' : 'En attente'}
+                          </Badge>
+                        </div>
+                        {order.items && order.items.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {order.items.map((item: any) => item.name || item.medicationName).join(', ')}
+                          </p>
+                        )}
                       </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {item.resultsCount}
-                      </Badge>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* About Section */}
-            <div className="p-4 hover:bg-muted/30">
-              <div className="flex items-start gap-3">
-                <div className="mt-2 h-2 w-2 rounded-full bg-muted" />
-                <div className="flex-1 space-y-2">
-                  <p className="text-sm font-medium">Our Suppliers</p>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Laborex Benin</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Ubipharm Benin</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+
           </div>
         </div>
         <div className="border-t p-4">
@@ -1312,6 +1570,9 @@ export default function MedicationSearchApp() {
           </p>
         </div>
       </footer>
+
+      {/* Chat Widget */}
+      <ChatWidget />
     </div>
   );
 }

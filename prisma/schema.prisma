@@ -59,3 +59,65 @@ model SearchHistory {
 
   @@index([searchedAt])
 }
+
+// SYCAPAY Merchant Credentials
+model SycapayCredential {
+  id           String   @id @default(cuid())
+  merchantId   String   @unique // Merchant ID provided by SYCAPAY
+  apiKey       String   // API Key provided by SYCAPAY
+  environment  String   @default("TEST") // TEST or PRODUCTION
+  country      String   @default("BJ") // Country code (BJ for Benin)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Payment Transaction
+model PaymentTransaction {
+  id              String   @id @default(cuid())
+  orderId         String   @unique // Unique order number
+  transactionId   String?  // SYCAPAY transaction ID
+  paiementId      String?  // Operator payment reference
+  amount          Float
+  currency        String   @default("XOF")
+  status          String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  statusCode      Int?     // SYCAPAY status code
+  statusMessage   String?
+  customerPhone   String
+  customerName    String?
+  customerPName   String?
+  operator        String?  // Mobile money operator (MtnBJ, MoovBJ, etc.)
+  operatorToken   String?  // Token from authentication phase
+  notifyUrl       String?
+  metadata        String?  // JSON string for additional data
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  paidAt          DateTime?
+
+  @@index([orderId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Order
+model Order {
+  id              String   @id @default(cuid())
+  orderNumber     String   @unique // Unique order number
+  items           String   // JSON string of order items
+  totalAmount     Float
+  currency        String   @default("XOF")
+  status          String   @default("PENDING") // PENDING, PAID, CANCELLED, COMPLETED
+  paymentMethod   String?  // Mobile money operator
+  paymentStatus   String   @default("UNPAID") // UNPAID, PAID, FAILED
+  transactionId   String?  // Reference to PaymentTransaction
+  customerPhone   String
+  customerName    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  completedAt     DateTime?
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+}

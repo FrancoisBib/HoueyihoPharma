@@ -12,7 +12,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/houeyiho?schema=public
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/houeyiho_dev?schema=public
     volumes:
       - .:/app
       - /app/node_modules
